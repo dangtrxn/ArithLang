@@ -20,11 +20,8 @@ public class Token {
      * @throws InvalidTokenException if any constructor params are empty
      */
     public Token(TokenType type, String lexeme, int row, int col){
-        if (type == null) {
-            throw new InvalidTokenException("Token type cannot be null.");
-        }
-        if (lexeme == null) {
-            throw new InvalidTokenException("Lexeme cannot be null.");
+        if (type == null || lexeme == null) {
+            throw new InvalidTokenException("Null tokenType or lexeme in Token constructor.");
         }
         if (row < 0 || col < 0) {
             throw new InvalidTokenException("Row and column indices must be non-negative.");

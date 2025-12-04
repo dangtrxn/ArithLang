@@ -8,7 +8,8 @@ public class LexicalAnalyzer {
     private static int row_index = 0;
     private int col_index;
     /**
-     * constructor for lexical analyzer, takes in source string to analyze
+     * constructor for lexical analyzer
+     * @param source - string to analyze
      */
     public LexicalAnalyzer(String source){
         this.source = source;
@@ -22,17 +23,17 @@ public class LexicalAnalyzer {
      */
     public Token get_token() throws InvalidTokenException {
         //return EOS if at end of line
-        if (col_index >= source.length()){
+        if(col_index >= source.length()){
             return new Token(TokenType.EOS, "", row_index++, col_index);
         }
 
         //skip all whitespace
-        while (col_index < source.length() && Character.isWhitespace(source.charAt(col_index))) {
+        while(col_index < source.length() && Character.isWhitespace(source.charAt(col_index))){
             col_index++;
         }
 
         //check again for end-of-line
-        if (col_index >= source.length()) {
+        if(col_index >= source.length()){
             return new Token(TokenType.EOS, "", row_index++, col_index);
         }
 
@@ -40,7 +41,7 @@ public class LexicalAnalyzer {
         char current = source.charAt(col_index);
 
         //identify parenthesis
-        if (isParenthesis(current)){
+        if(isParenthesis(current)){
             //return left paren token
             if (current == '('){
                 Token t = new Token(TokenType.LEFT_PAREN, "(", row_index, col_index);
@@ -56,7 +57,7 @@ public class LexicalAnalyzer {
         }
 
         //identify operators
-        if (isOperator(current)){
+        if(isOperator(current)){
             TokenType type;
             switch (current){
                 case '+':
@@ -80,22 +81,60 @@ public class LexicalAnalyzer {
             return token;
         }
 
-        //identify digits
-        if (Character.isDigit(current)) {
+        //identify assignment operator
+        if(isAssignment(current)){
             int start_index = col_index;
-            while (col_index < source.length() && Character.isDigit(source.charAt(col_index))) {
+            col_index+=2;
+            return new Token(TokenType.ASSIGNMENT, ":=", row_index,start_index);
+        }
+
+        //identify digits, return token with lexeme substring from [start index, end index]
+        if(Character.isDigit(current)){
+            int start_index = col_index;
+            while(col_index < source.length() && Character.isDigit(source.charAt(col_index))){
                 col_index++;
             }
             String lexeme = source.substring(start_index, col_index);
             return new Token(TokenType.INT_LIT, lexeme, row_index, start_index);
         }
 
+        //identify statements and identifiers
+        if(Character.isLetter(current)){
+            int start_index = col_index;
+
+            while(col_index < source.length() && Character.isLetterOrDigit(source.charAt(col_index))){
+                col_index++;
+            }
+
+            //lowercase lexeme to ignore case sensitivity
+            String lexeme = source.substring(start_index,col_index).toLowerCase();
+            Token token;
+
+            //create token based on lexeme, either statement or identifier
+            switch (lexeme){
+                case "let":
+                    token = new Token(TokenType.LET, lexeme, row_index, start_index);
+                    break;
+                case "display":
+                    token = new Token(TokenType.DISPLAY, lexeme, row_index, start_index);
+                    break;
+                case "input":
+                    token = new Token(TokenType.INPUT, lexeme, row_index, start_index);
+                    break;
+                default:
+                    token = new Token(TokenType.ID, lexeme, row_index, start_index);
+                    break;
+            }
+            return token;
+        }
+
         //INVALID TOKEN THROW ERROR
-        throw new InvalidTokenException("Invalid token type in get_token()");
+        throw new InvalidTokenException("Invalid token at row " + row_index + ", col " + col_index + ": " + source.charAt(col_index));
     }
 
     /**
      * method to identify parenthesis
+     * @param c - current char
      * @return true if paren, false otherwise
      */
     public boolean isParenthesis(char c){
@@ -103,9 +142,19 @@ public class LexicalAnalyzer {
     }
     /**
      * method to identify operator
-     * @return true if paren, false otherwise
+     * @param c - current char
+     * @return true if operator, false otherwise
      */
     public boolean isOperator(char c){
         return c == '+' || c == '-' || c == '*' || c == '/';
     }
+    /**
+     * method to identify assignment operator
+     * @param c - current char
+     * @return true if assignment, false otherwise
+     */
+    public boolean isAssignment(char c){
+        return c == ':' && col_index + 1 < source.length() && source.charAt(col_index + 1) == '=';
+    }
+
 }

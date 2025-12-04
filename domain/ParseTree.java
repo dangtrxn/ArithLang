@@ -1,26 +1,29 @@
 package domain;
-import domain.node.ExpressionNode;
-import globalexceptions.InvalidParseException;
+import domain.node.ProgramNode;
+import globalexceptions.InvalidArgumentException;
 
 /**
  * class for parse tree, evaluates value of expression
  */
 public class ParseTree {
     //root node
-    private ExpressionNode expr;
+    private ProgramNode programNode;
 
     /**
-     * constructor for parse tree, takes in expr node as root of tree
+     * constructor for parse tree
+     * @param programNode - program node as root of tree
+     * @throws InvalidArgumentException if programNode is null
      */
-    public ParseTree(ExpressionNode expr){
-        this.expr = expr;
+    public ParseTree(ProgramNode programNode) throws InvalidArgumentException {
+        if(programNode == null) throw new InvalidArgumentException("Null expression parameter in ParseTree constructor.");
+        this.programNode = programNode;
     }
 
     /**
      * method to evaluate value of expression tree
      * @return value of tree in postorder traversal
      */
-    public int evaluate(){
-        return expr.evaluate();
+    public int evaluate(Memory memory){
+        return programNode.execute(memory);
     }
 }
