@@ -1,8 +1,7 @@
-import java.util.*;
 import java.io.*;
 import domain.*;
 import globalexceptions.*;
-import domain.LexicalAnalyzer;
+
 /**
  * program reads from input file
  * through lexical analyzer object, creates tokens and displays token information
@@ -16,21 +15,36 @@ public class Main {
             return;
         }
 
+        BufferedReader br = null;
         try{
+            //initialize memory
             //file object of input file and scanner to read file
+            Memory memory = new Memory();
             File source = new File(args[0]);
-            Scanner sc = new Scanner(source);
+            br = new BufferedReader(new FileReader(source));
+            int lineNum = 0;
+            String line;
 
+            System.out.println("Program Start\n---------------");
             //loop through file lines
-            //create lex and parser
-            //parse through file
-            while(sc.hasNextLine()){
-                LexicalAnalyzer lex = new LexicalAnalyzer(sc.nextLine());
+            while((line = br.readLine()) != null){
+                //remove whitespace and skip empty lines
+                line = line.trim();
+                if(line.isEmpty()) continue;
+
+                //create lex + parser
+                //parse through expressions and create parse trees
+                LexicalAnalyzer lex = new LexicalAnalyzer(line);
                 Parser parser = new Parser(lex);
-                parser.parse();
+                ParseTree parseTree = new ParseTree(parser.parse());
+
+                System.out.println("Executing line: " + line);
+                parseTree.evaluate(memory);
+
+                lineNum++;
             }
 
-            sc.close();
+            br.close();
 
         //catch exceptions
         }
@@ -43,7 +57,7 @@ public class Main {
         catch (FileNotFoundException e){
             System.err.println(e.getMessage());
         }
-        catch(InvalidParse e){
+        catch(InvalidParseException e){
             System.err.println(e.getMessage());
         }
         catch(Exception e){
