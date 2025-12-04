@@ -1,16 +1,24 @@
 package domain.node;
 
+import globalexceptions.InvalidArgumentException;
+import domain.Memory;
+
 /**
- * class for paren factor node, extends FactorNode, implements evaluate for parenthesized expressions
+ * class for paren factor node, implements FactorNode, implements evaluate for parenthesized expressions
  */
 //(<expr>)
-public class ParenFactorNode extends FactorNode{
-    private ExpressionNode expr;
+public class ParenFactorNode implements FactorNodeArithmetic {
+    private ArithmeticExpressionNode expr;
 
     /**
-     * constructor for ParenFactorNode, takes in expression node
+     * constructor for ParenFactorNode
+     * @param expr - arithmetic expression node
+     * @throws InvalidArgumentException - if expr is null
      */
-    public ParenFactorNode(ExpressionNode expr){
+    public ParenFactorNode(ArithmeticExpressionNode expr) throws InvalidArgumentException {
+        if(expr == null){
+            throw new InvalidArgumentException("Null expression parameter in ParenFactorNode constructor");
+        }
         this.expr = expr;
     }
 
@@ -19,7 +27,7 @@ public class ParenFactorNode extends FactorNode{
      * @return expression evaluation
      */
     @Override
-    public int evaluate(){
-        return expr.evaluate();
+    public int evaluate(Memory memory){
+        return expr.evaluate(memory);
     }
 }
