@@ -94,7 +94,7 @@ public class Parser {
         String id = identifier();
         match(TokenType.ASSIGNMENT);
         ArithmeticExpressionNode expr = arithmetic_expression();
-        consumeEOL();
+        match(TokenType.EOL);
         return new LetStatementNode(id, expr);
     }
 
@@ -106,7 +106,7 @@ public class Parser {
     public DisplayStatementNode display_statement(){
         match(TokenType.DISPLAY);
         String id = identifier();
-        consumeEOL();
+        match(TokenType.EOL);
         return new DisplayStatementNode(id);
     }
 
@@ -118,7 +118,7 @@ public class Parser {
     public InputStatementNode input_statement(){
         match(TokenType.INPUT);
         String id = identifier();
-        consumeEOL();
+        match(TokenType.EOL);
         return new InputStatementNode(id);
     }
 

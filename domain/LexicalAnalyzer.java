@@ -127,6 +127,16 @@ public class LexicalAnalyzer {
             return get_token();
         }
 
+        //handle new trailing space
+        if (source.charAt(index) == '\n') {
+            Token eol = new Token(TokenType.EOL, "\n", line, col);
+            index++;
+            line++;
+            col = 0;
+            atStart = true;
+            return eol;
+        }
+
         current = source.charAt(index);
         int startCol = col;
         int startIndex = index;
@@ -332,5 +342,4 @@ public class LexicalAnalyzer {
             return '\0';
         }
     }
-
 }
