@@ -1,19 +1,32 @@
 package domain;
 import globalexceptions.InvalidTokenException;
+import java.util.*;
 /**
  * class for a lexical analyzer which contains information, get_token method, and additional helper methods
  */
 public class LexicalAnalyzer {
-    private String source;
-    private static int row_index = 0;
-    private int col_index;
+    private final String source;
+    private int index;
+    private int line;
+    private int col;
+
+    private boolean atStart;
+    private final Deque<Integer> indentStack;
+    private final Queue<Token> pendingTokens;
+
     /**
      * constructor for lexical analyzer
-     * @param source - string to analyze
+     * @param source - source program file
      */
     public LexicalAnalyzer(String source){
         this.source = source;
-        this.col_index = 0;
+        this.index = 0;
+        this.line = 0;
+        this.col = 0;
+        this.atStart = true;
+        this.indentStack = new ArrayDeque<>();
+        this.indentStack.push(0);
+        this.pendingTokens = new ArrayDeque<>();
     }
 
     /**
@@ -22,43 +35,122 @@ public class LexicalAnalyzer {
      * @return current char as a token
      */
     public Token get_token() throws InvalidTokenException {
-        //return EOS if at end of line
-        if(col_index >= source.length()){
-            return new Token(TokenType.EOS, "", row_index++, col_index);
+        //return any queued indent/dedent
+        if(!pendingTokens.isEmpty()){
+            return pendingTokens.poll();
         }
 
-        //skip all whitespace
-        while(col_index < source.length() && Character.isWhitespace(source.charAt(col_index))){
-            col_index++;
-        }
-
-        //check again for end-of-line
-        if(col_index >= source.length()){
-            return new Token(TokenType.EOS, "", row_index++, col_index);
+        //handle EOS, pop remaining dedents
+        if(index >= source.length()){
+            while(indentStack.size() > 1){
+                indentStack.pop();
+                pendingTokens.add(new Token(TokenType.DEDENT,"",line, col));
+            }
+            if(!pendingTokens.isEmpty()){
+                return pendingTokens.poll();
+            }
+            return new Token(TokenType.EOS,"",line,col);
         }
 
         //get current char
-        char current = source.charAt(col_index);
+        char current = source.charAt(index);
+
+        //handle new lines + empty lines
+        if(current == '\n'){
+            Token eol = new Token(TokenType.EOL, "\n",line, col);
+            index++;
+            line++;
+            col=0;
+            atStart = true;
+            return eol;
+        }
+
+        //handle indentation at line start
+        if(atStart){
+            int spaces = 0;
+
+            while(index < source.length()){
+                current = source.charAt(index);
+
+                //skip spaces at start of line
+                if(current == ' '){
+                    spaces++;
+                    index++;
+                    col++;
+                }
+                //indent = 4 spaces
+                else if(current == '\t'){
+                    spaces += 4;
+                    index++;
+                    col += 4;
+                }
+                else{
+                    break;
+                }
+            }
+
+            atStart = false;
+
+            int currentIndent = indentStack.peek();
+            if(spaces > currentIndent){
+                //push indent
+                indentStack.push(spaces);
+                return new Token(TokenType.INDENT,"",line, col);
+            }
+            else if(spaces < currentIndent){
+                //at least one dedent
+                while(spaces < indentStack.peek()){
+                    indentStack.pop();
+                    pendingTokens.add(new Token(TokenType.DEDENT,"",line, col));
+                }
+
+                if(spaces != indentStack.peek()){
+                    throw new InvalidTokenException("Indentation error on line " + line);
+                }
+                return pendingTokens.poll();
+            }
+        }
+
+        //handle spaces + tabs in middle of lines
+        while(index < source.length()){
+            current = source.charAt(index);
+            if(current == ' ' || current == '\t'){
+                index++;
+                col++;
+            }
+            else{
+                break;
+            }
+        }
+
+        if(index >= source.length()){
+            return get_token();
+        }
+
+        current = source.charAt(index);
+        int startCol = col;
+        int startIndex = index;
 
         //identify parenthesis
         if(isParenthesis(current)){
             //return left paren token
             if (current == '('){
-                Token t = new Token(TokenType.LEFT_PAREN, "(", row_index, col_index);
-                col_index++;
-                return t;
+                index++;
+                col++;
+                return new Token(TokenType.LEFT_PAREN, "(", line, startCol);
             }
+            //return right paren token
             else{
-                //return right paren token
-                Token t = new Token(TokenType.RIGHT_PAREN, ")", row_index, col_index);
-                col_index++;
-                return t;
+                index++;
+                col++;
+                return new Token(TokenType.RIGHT_PAREN, ")", line, startCol);
             }
         }
 
-        //identify operators
-        if(isOperator(current)){
+        //identify arithmetic and not equals
+        if(isArithmetic(current)){
             TokenType type;
+
             switch (current){
                 case '+':
                     type = TokenType.ADDITION;
@@ -70,66 +162,142 @@ public class LexicalAnalyzer {
                     type = TokenType.MULTIPLICATION;
                     break;
                 case '/':
-                    type = TokenType.DIVISION;
+                    //not equals
+                    if(peek() == '='){
+                        type = TokenType.NOT_EQUAL;
+                        index++;
+                        col++;
+                    }
+                    //division
+                    else{
+                        type = TokenType.DIVISION;
+                    }
                     break;
                 default:
                     throw new InvalidTokenException("Unknown operator: " + current);
             }
-
-            Token token = new Token(type, Character.toString(current), row_index,col_index);
-            col_index++;
-            return token;
+            col++;
+            index++;
+            return new Token(type, source.substring(startIndex,index), line,startCol);
         }
 
-        //identify assignment operator
-        if(isAssignment(current)){
-            int start_index = col_index;
-            col_index+=2;
-            return new Token(TokenType.ASSIGNMENT, ":=", row_index,start_index);
+        //identify colon and assignment operator
+        if(current == ':'){
+            if(peek() == '='){
+                col+=2;
+                index+=2;
+                return new Token(TokenType.ASSIGNMENT, ":=", line,startCol);
+            }
+            index++;
+            col++;
+            return new Token(TokenType.COLON,":",line,startCol);
+        }
+
+        if(current == '.' && peek() == '.'){
+            col+=2;
+            index+=2;
+            return new Token(TokenType.RANGE,"..",line,startCol);
+        }
+
+        //identify relation operator
+        if(isRelational(current)){
+            TokenType type;
+            switch(current){
+                case '<':
+                    if(peek() == '='){
+                        type = TokenType.LESS_EQUAL;
+                        index++;
+                        col++;
+                    }
+                    else{
+                        type = TokenType.LESS_THAN;
+                    }
+                    break;
+                case '>':
+                    if(peek() == '='){
+                        type = TokenType.GREATER_EQUAL;
+                        index++;
+                        col++;
+                    }
+                    else{
+                        type = TokenType.GREATER_THAN;
+                    }
+                    break;
+                case '=':
+                    type = TokenType.EQUAL;
+                    break;
+                default:
+                    throw new InvalidTokenException("Unknown operator: " + current);
+            }
+            index++;
+            col++;
+            return new Token(type, source.substring(startIndex,index), line, startCol);
         }
 
         //identify digits, return token with lexeme substring from [start index, end index]
         if(Character.isDigit(current)){
-            int start_index = col_index;
-            while(col_index < source.length() && Character.isDigit(source.charAt(col_index))){
-                col_index++;
+            while(index < source.length() && Character.isDigit(source.charAt(index))){
+                index++;
+                col++;
             }
-            String lexeme = source.substring(start_index, col_index);
-            return new Token(TokenType.INT_LIT, lexeme, row_index, start_index);
+            return new Token(TokenType.INT_LIT, source.substring(startIndex, index), line, startCol);
         }
 
         //identify statements and identifiers
         if(Character.isLetter(current)){
-            int start_index = col_index;
-
-            while(col_index < source.length() && Character.isLetterOrDigit(source.charAt(col_index))){
-                col_index++;
+            while(index < source.length() && Character.isLetterOrDigit(source.charAt(index))){
+                index++;
+                col++;
             }
 
             //lowercase lexeme to ignore case sensitivity
-            String lexeme = source.substring(start_index,col_index).toLowerCase();
-            Token token;
+            String lexeme = source.substring(startIndex, index).toLowerCase();
+            TokenType type;
 
             //create token based on lexeme, either statement or identifier
             switch (lexeme){
                 case "let":
-                    token = new Token(TokenType.LET, lexeme, row_index, start_index);
+                    type = TokenType.LET;
                     break;
                 case "display":
-                    token = new Token(TokenType.DISPLAY, lexeme, row_index, start_index);
+                    type = TokenType.DISPLAY;
                     break;
                 case "input":
-                    token = new Token(TokenType.INPUT, lexeme, row_index, start_index);
+                    type = TokenType.INPUT;
+                    break;
+                case "if":
+                    type = TokenType.IF;
+                    break;
+                case "else":
+                    type = TokenType.ELSE;
+                    break;
+                case "elif":
+                    type = TokenType.ELIF;
+                    break;
+                case "while":
+                    type = TokenType.WHILE;
+                    break;
+                case "for":
+                    type = TokenType.FOR;
+                    break;
+                case "in":
+                    type = TokenType.IN;
+                    break;
+                case "range":
+                    type = TokenType.RANGE;
+                    break;
+                case "colon":
+                    type = TokenType.COLON;
                     break;
                 default:
-                    token = new Token(TokenType.ID, lexeme, row_index, start_index);
+                    type = TokenType.ID;
                     break;
             }
-            return token;
+            return new Token(type, lexeme, line,startCol);
         }
 
         //INVALID TOKEN THROW ERROR
-        throw new InvalidTokenException("Invalid token at row " + row_index + ", col " + col_index + ": " + source.charAt(col_index));
+        throw new InvalidTokenException("Invalid token at line " + line + ", col " + col + ": " + current);
     }
 
     /**
@@ -145,16 +313,24 @@ public class LexicalAnalyzer {
      * @param c - current char
      * @return true if operator, false otherwise
      */
-    public boolean isOperator(char c){
+    public boolean isArithmetic(char c){
         return c == '+' || c == '-' || c == '*' || c == '/';
     }
+
+    public boolean isRelational(char c){
+        return c == '<' || c == '>' || c == '=';
+    }
     /**
-     * method to identify assignment operator
-     * @param c - current char
-     * @return true if assignment, false otherwise
+     * method to peek at next char
+     * @return next char or null
      */
-    public boolean isAssignment(char c){
-        return c == ':' && col_index + 1 < source.length() && source.charAt(col_index + 1) == '=';
+    public char peek(){
+        if(index + 1 < source.length()){
+            return source.charAt(index+1);
+        }
+        else{
+            return '\0';
+        }
     }
 
 }

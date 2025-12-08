@@ -61,6 +61,13 @@ public class Token {
         return col;
     }
     /**
+     * method to determine if token type is relational
+     * @return boolean value
+     */
+    public boolean isRelational(){
+        return type == TokenType.LESS_THAN || type == TokenType.LESS_EQUAL || type == TokenType.GREATER_THAN || type == TokenType.GREATER_EQUAL || type == TokenType.EQUAL || type == TokenType.NOT_EQUAL;
+    }
+    /**
      * method to print token information
      * @return token information in string form
      */

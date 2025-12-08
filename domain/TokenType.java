@@ -9,6 +9,14 @@ public enum TokenType {
     MULTIPLICATION,
     DIVISION,
 
+    //relational operators
+    LESS_THAN, // <
+    GREATER_THAN, // >
+    LESS_EQUAL, // <=
+    GREATER_EQUAL, // >=
+    EQUAL, // =
+    NOT_EQUAL, // /=
+
     //parentheses
     LEFT_PAREN,
     RIGHT_PAREN,
@@ -25,7 +33,20 @@ public enum TokenType {
     LET, //let
     DISPLAY, //display
     INPUT, //input
+    IF,
+    ELSE,
+    ELIF,
+    WHILE,
+    FOR,
+    IN, // in keyword for for loops
+    RANGE, // .. range for for loops
+    COLON, // :
 
-    //end of source
+    //indentation
+    INDENT,
+    DEDENT,
+
+    //ending
+    EOL,
     EOS;
 }

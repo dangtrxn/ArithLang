@@ -2,14 +2,13 @@ package domain;
 
 import globalexceptions.*;
 import domain.node.*;
-
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * class for a parser which contains information, parse method, match method, and necessary recursive methods for recursive descent
  */
 public class Parser {
-
     private LexicalAnalyzer lex;
     private Token current_token;
 
@@ -34,7 +33,12 @@ public class Parser {
     //<Program> ::= <Stmt_List>
     public ProgramNode parse(){
         ProgramNode programNode = new ProgramNode(new ArrayList<>());
+
         while(current_token.get_type() != TokenType.EOS){
+            if(current_token.get_type() == TokenType.EOL){
+                match(TokenType.EOL);
+                continue;
+            }
             programNode.addStatement(statement());
         }
         return programNode;
@@ -69,6 +73,12 @@ public class Parser {
                 return display_statement();
             case INPUT:
                 return input_statement();
+            case IF:
+                return if_statement();
+            case WHILE:
+                return while_statement();
+            case FOR:
+                return for_statement();
             default:
                 throw new InvalidParseException("Invalid statement while parsing: " + current_token);
         }
@@ -81,16 +91,10 @@ public class Parser {
     //<Assn_Stmt> ::= “let” <id> “:=” <Arithmetic_Expression> <EOL>
     public LetStatementNode assign_statement(){
         match(TokenType.LET);
-        String id = current_token.get_lexeme();
-        match(TokenType.ID);
+        String id = identifier();
         match(TokenType.ASSIGNMENT);
-
         ArithmeticExpressionNode expr = arithmetic_expression();
-
-        if (current_token.get_type() == TokenType.EOS) {
-            current_token = lex.get_token();
-        }
-
+        consumeEOL();
         return new LetStatementNode(id, expr);
     }
 
@@ -101,13 +105,8 @@ public class Parser {
     //<Display_Stmt> ::= “display” id <EOL>
     public DisplayStatementNode display_statement(){
         match(TokenType.DISPLAY);
-        String id = current_token.get_lexeme();
-        match(TokenType.ID);
-
-        if (current_token.get_type() == TokenType.EOS) {
-            current_token = lex.get_token();
-        }
-
+        String id = identifier();
+        consumeEOL();
         return new DisplayStatementNode(id);
     }
 
@@ -118,14 +117,130 @@ public class Parser {
     //<Input_Stmt> ::= “input” id <EOL>
     public InputStatementNode input_statement(){
         match(TokenType.INPUT);
-        String id = current_token.get_lexeme();
-        match(TokenType.ID);
+        String id = identifier();
+        consumeEOL();
+        return new InputStatementNode(id);
+    }
 
-        if (current_token.get_type() == TokenType.EOS) {
-            current_token = lex.get_token();
+    /**
+     * method for an if statement definition
+     * @return if statement node
+     */
+    public IfStatementNode if_statement(){
+        match(TokenType.IF);
+        BooleanExpressionNode condition = relational_expression();
+        match(TokenType.COLON);
+        match(TokenType.EOL);
+
+        List<StatementNode> ifStatements = statement_block();
+        List<StatementNode> elseStatements = remaining_if();
+        return new IfStatementNode(condition,ifStatements,elseStatements);
+    }
+
+    /**
+     * method for remaining if statement definition
+     * @return statement_block()
+     */
+    public List<StatementNode> remaining_if(){
+        if(current_token.get_type() == TokenType.ELSE){
+            match(TokenType.ELSE);
+            match(TokenType.COLON);
+            match(TokenType.EOL);
+            return statement_block();
+        }
+        else if(current_token.get_type() == TokenType.ELIF){
+            match(TokenType.ELIF);
+            BooleanExpressionNode elifCondition = relational_expression();
+            match(TokenType.COLON);
+            match(TokenType.EOL);
+            List<StatementNode> elifStatements = statement_block();
+
+            List<StatementNode> remainingElse = remaining_if();
+
+            List<StatementNode> elseStatements = new ArrayList<>();
+            elseStatements.add(new IfStatementNode(elifCondition,elifStatements,remainingElse));
+            return elseStatements;
+        }
+        return null;
+    }
+
+    /**
+     * method for a while statement definition
+     * @return while statement node
+     */
+    public WhileStatementNode while_statement(){
+        match(TokenType.WHILE);
+        BooleanExpressionNode condition = relational_expression();
+        match(TokenType.COLON);
+        match(TokenType.EOL);
+        List<StatementNode> statements = statement_block();
+        return new WhileStatementNode(condition, statements);
+    }
+
+    /**
+     * method for a for loop statement definition
+     * @return for statement node
+     */
+    public ForStatementNode for_statement(){
+        match(TokenType.FOR);
+        String id = identifier();
+        match(TokenType.IN);
+
+        ArithmeticExpressionNode start = arithmetic_expression();
+        match(TokenType.RANGE);
+        ArithmeticExpressionNode end = arithmetic_expression();
+
+        match(TokenType.COLON);
+        match(TokenType.EOL);
+
+        List<StatementNode> statements = statement_block();
+        return new ForStatementNode(id, start, end, statements);
+    }
+
+    /**
+     * method for a statement block definition
+     * @return list of statements
+     */
+    public List<StatementNode> statement_block(){
+        match(TokenType.INDENT);
+        List<StatementNode> statements = new ArrayList<>();
+
+        while(current_token.get_type() != TokenType.EOS && current_token.get_type() != TokenType.DEDENT){
+            if(current_token.get_type() == TokenType.EOL){
+                match(TokenType.EOL);
+                continue;
+            }
+
+            statements.add(statement());
         }
 
-        return new InputStatementNode(id);
+        match(TokenType.DEDENT);
+        return statements;
+    }
+
+    /**
+     * method for a relational expression definition
+     * @return relational expression node
+     */
+    public BooleanExpressionNode relational_expression(){
+        ArithmeticExpressionNode left = arithmetic_expression();
+
+        TokenType op = current_token.get_type();
+        switch(op){
+            case LESS_THAN:
+            case LESS_EQUAL:
+            case GREATER_THAN:
+            case GREATER_EQUAL:
+            case EQUAL:
+            case NOT_EQUAL:
+                match(op);
+                break;
+            default:
+                throw new InvalidParseException("Expected relational operator: " + current_token);
+        }
+
+        ArithmeticExpressionNode right = arithmetic_expression();
+        return new RelationalExpressionNode(left, op, right);
     }
 
     /**
@@ -261,5 +376,11 @@ public class Parser {
         String num = current_token.get_lexeme();
         match(TokenType.INT_LIT);
         return Integer.parseInt(num);
+    }
+
+    private void consumeEOL() {
+        if (current_token.get_type() == TokenType.EOL) {
+            match(TokenType.EOL);
+        }
     }
 }

@@ -17,37 +17,28 @@ public class Main {
 
         BufferedReader br = null;
         try{
-            //initialize memory
-            //file object of input file and scanner to read file
-            Memory memory = new Memory();
+            //file object of input file and buffered reader to read file
             File source = new File(args[0]);
             br = new BufferedReader(new FileReader(source));
-            int lineNum = 0;
+
+            StringBuilder sb = new StringBuilder();
             String line;
-
-            System.out.println("Program Start\n---------------");
-            //loop through file lines
-            while((line = br.readLine()) != null){
-                //remove whitespace and skip empty lines
-                line = line.trim();
-                if(line.isEmpty()) continue;
-
-                //create lex + parser
-                //parse through expressions and create parse trees
-                LexicalAnalyzer lex = new LexicalAnalyzer(line);
-                Parser parser = new Parser(lex);
-                ParseTree parseTree = new ParseTree(parser.parse());
-
-                System.out.println("Executing line: " + line);
-                parseTree.evaluate(memory);
-
-                lineNum++;
+            while ((line = br.readLine()) != null) {
+                sb.append(line).append('\n');  // keep the newlines
             }
-
             br.close();
 
-        //catch exceptions
+            //memory, lexical analyzer, parser, and parse tree creation
+            Memory memory = new Memory();
+            LexicalAnalyzer lex = new LexicalAnalyzer(sb.toString());
+            Parser parser = new Parser(lex);
+            ParseTree parseTree = new ParseTree(parser.parse());
+
+            //program execution
+            System.out.println("Program Start\n---------------");
+            parseTree.evaluate(memory);
         }
+        //catch exceptions
         catch (InvalidTokenException e){
             System.err.println(e.getMessage());
         }
