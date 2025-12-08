@@ -28,15 +28,14 @@ public class Main {
             }
             br.close();
 
-            //memory, lexical analyzer, parser, and parse tree creation
-            Memory memory = new Memory();
+            //lexical analyzer, parser, and parse tree creation
             LexicalAnalyzer lex = new LexicalAnalyzer(sb.toString());
             Parser parser = new Parser(lex);
             ParseTree parseTree = new ParseTree(parser.parse());
 
             //program execution
             System.out.println("Program Start\n---------------");
-            parseTree.evaluate(memory);
+            parseTree.evaluate();
         }
         //catch exceptions
         catch (InvalidTokenException e){

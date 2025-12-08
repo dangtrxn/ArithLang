@@ -22,7 +22,7 @@ public class Memory {
      */
     public int get(String id){
         if(!table.containsKey(id.toLowerCase())){
-            throw new InvalidArgumentException(id + " does not exist.");
+            table.put(id,0);
         }
         return table.get(id.toLowerCase());
     }

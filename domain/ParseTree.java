@@ -6,7 +6,7 @@ import globalexceptions.InvalidArgumentException;
  * class for parse tree, evaluates value of expression
  */
 public class ParseTree {
-    //root node
+    private Memory memory = new Memory();
     private ProgramNode programNode;
 
     /**
@@ -23,7 +23,7 @@ public class ParseTree {
      * method to evaluate value of expression tree
      * @return value of tree in postorder traversal
      */
-    public int evaluate(Memory memory){
-        return programNode.execute(memory);
+    public void evaluate(){
+        programNode.execute(memory);
     }
 }
